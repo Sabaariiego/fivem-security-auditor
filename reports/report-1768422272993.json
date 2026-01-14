@@ -1,0 +1,14 @@
+{
+  "summary": {
+    "scannedFiles": 1,
+    "totalIssues": 1
+  },
+  "issues": [
+    {
+      "type": "citizen_obfuscated_js",
+      "file": "C:\\Users\\erics\\Downloads\\test_virus\\citizen\\system_resources\\cfg\\script.js",
+      "risk": "critical",
+      "reason": "Archivo JS en carpeta 'citizen' contiene patrón ofuscado sospechoso"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "summary": {
+    "scannedFiles": 2,
+    "totalIssues": 2
+  },
+  "issues": [
+    {
+      "type": "folder_obfuscated_pattern",
+      "file": "C:\\Users\\erics\\Downloads\\test_virus\\citizen\\system_resources\\cfg\\adad\\adadadada\\adada\\main.js",
+      "risk": "critical",
+      "reason": "Archivo contiene patrón ofuscado que coincide con alguna carpeta de su ruta y ha sido eliminado"
+    },
+    {
+      "type": "citizen_obfuscated_js",
+      "file": "C:\\Users\\erics\\Downloads\\test_virus\\citizen\\system_resources\\cfg\\script.js",
+      "risk": "critical",
+      "reason": "Archivo JS en carpeta 'citizen' contiene patrón ofuscado sospechoso"
+    }
+  ]
+}

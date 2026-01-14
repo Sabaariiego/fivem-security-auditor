@@ -1,0 +1,16 @@
+{
+  "name": "fivem-security-auditor",
+  "version": "1.0.0",
+  "description": "Open-source security auditor for FiveM servers (offline analysis)",
+  "main": "index.js",
+  "bin": {
+    "fivem-audit": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "winattr": "^3.0.0"
+  }
+}
