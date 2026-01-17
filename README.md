@@ -6,7 +6,8 @@ scripts ofuscados, archivos ocultos y otros posibles riesgos. Además,
 permite aplicar fixes automáticos para eliminar archivos sospechosos de
 manera segura.
 
-[Web Oficial](https://fivem-auditor.sabaariiego.dev/)
+[Web Oficial](https://fivem-auditor.sabaariiego.dev/)  
+Visita la web para acceder a la documentación completa, guías avanzadas y futuras actualizaciones.
 
 ## 🚀 Características
 
