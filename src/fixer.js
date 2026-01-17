@@ -1,14 +1,6 @@
 const fs = require("fs");
 const path = require("path");
 
-const OBFUSCATION = [
-  /eval\s*\(/i,
-  /String\.fromCharCode/i,
-  /\\u[0-9a-fA-F]{4}/,
-  /\^ *\d+/,
-  /globalThis\s*\[.*?\]/
-];
-
 function applyFixes(report) {
   console.log("Aplicando fixes a", report.issues.length, "issues");
 
