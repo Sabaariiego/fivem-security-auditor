@@ -12,9 +12,9 @@ if (!fs.existsSync(target)) {
   process.exit(1);
 }
 
-console.log("🔍 FiveM Security Auditor");
-console.log("📂 Escaneando:", path.resolve(target));
-console.log("🛠️  Fix:", fix ? "ACTIVADO" : "DESACTIVADO");
+console.log("FiveM Security Auditor");
+console.log("Escaneando:", path.resolve(target));
+console.log("Fix:", fix ? "ACTIVADO" : "DESACTIVADO");
 console.log("------------------------------------------------");
 
 const report = scanner.scan(target);
@@ -23,10 +23,10 @@ fs.mkdirSync("reports", { recursive: true });
 const reportPath = path.join("reports", `report-${Date.now()}.json`);
 fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
 
-console.log("📄 Reporte:", reportPath);
+console.log("Reporte:", reportPath);
 
 if (fix) {
   fixer.applyFixes(report);
 }
 
-console.log("✅ Finalizado");
+console.log("Finalizado");

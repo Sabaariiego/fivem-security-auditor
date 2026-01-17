@@ -28,21 +28,16 @@ function isInsideCitizenFolder(filePath) {
   return parts.includes("citizen");
 }
 
-function escapeRegex(str) {
-  return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
-}
-
 function containsFolderPatternAndRemove(filePath) {
   if (!fs.existsSync(filePath)) return false;
 
   const content = fs.readFileSync(filePath, "utf-8");
   const parts = filePath.split(path.sep);
-  const folders = parts.slice(0, -1); // todas las carpetas menos el archivo
+  const folders = parts.slice(0, -1);
 
   for (const folder of folders) {
     if (!folder) continue;
 
-    // Construimos regex que ignore espacios y sea insensible a mayúsculas
     const safeFolder = folder.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
     const regex = new RegExp(`/\\*\\[\\s*${safeFolder}\\s*\\]\\*/`, "i");
 
