@@ -6,6 +6,8 @@ scripts ofuscados, archivos ocultos y otros posibles riesgos. Además,
 permite aplicar fixes automáticos para eliminar archivos sospechosos de
 manera segura.
 
+[Web Oficial](https://fivem-auditor.sabaariiego.dev/)
+
 ## 🚀 Características
 
 -   Detección de **archivos Lua y JS ofuscados** con patrones como
@@ -62,14 +64,14 @@ Los reportes se generan en formato JSON dentro de la carpeta `reports/`.
 Servidor de hosting profesional de alto rendimiento con más de **200
 Tbps** de capacidad de red, optimizado específicamente para servidores
 FiveM con **protección DDoS avanzada**.\
-👉 Visitar ColdHosting
+👉  [Visita ColdHosting](https://coldhosting.com)
 
 ### FlexBacks
 
 Sistema de **backups SQL automáticos** optimizados para no perder
 rendimiento. Respaldos inteligentes que protegen tus datos sin afectar
 la velocidad de tu servidor.\
-👉 Conocer FlexBacks
+👉 [Visita FlexBacks](https://flexbacks.com)
 
 ## ⚠️ Advertencias
 
