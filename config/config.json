@@ -1,0 +1,33 @@
+{
+  "dangerousLuaCalls": [
+    "loadstring",
+    "os.execute",
+    "io.popen"
+  ],
+  "extendedPatterns": [
+    {
+      "name": "CRITICAL: Cipher XOR Obfuscation",
+      "regex": "charCodeAt\\(0\\)\\s*\\^\\s*\\d+",
+      "risk": "critical",
+      "reason": "Descifrado XOR detectado (patrón típico de backdoors)."
+    },
+    {
+      "name": "CRITICAL: Eval + Unicode Replace",
+      "regex": "eval\\(.*replace\\(\\/\\\\u",
+      "risk": "critical",
+      "reason": "Ofuscación mediante reemplazo Unicode y ejecución dinámica."
+    },
+    {
+      "name": "CRITICAL: Cipher/Decode Function",
+      "regex": "function\\s+\\w+\\s*\\(_0x",
+      "risk": "critical",
+      "reason": "Detección de función de desofuscación (posible código malicioso)."
+    },
+    {
+      "name": "Dirección IP Detectada",
+      "regex": "\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b",
+      "risk": "low",
+      "reason": "Se encontró una IP estática. Verificar si es una conexión externa legítima."
+    }
+  ]
+}

@@ -4,6 +4,7 @@ const winattr = require("winattr");
 const { walk } = require("./utils");
 const { analyzeManifest } = require("./manifestAnalyzer");
 const { analyzeLua } = require("./luaAnalyzer");
+const config = require("../config/config.json");
 
 function isWindowsHidden(filePath) {
   if (!fs.existsSync(filePath)) return false;
@@ -28,7 +29,7 @@ function isInsideCitizenFolder(filePath) {
   return parts.includes("citizen");
 }
 
-function containsFolderPatternAndRemove(filePath) {
+function containsFolderPattern(filePath) {
   if (!fs.existsSync(filePath)) return false;
 
   const content = fs.readFileSync(filePath, "utf-8");
@@ -42,13 +43,12 @@ function containsFolderPatternAndRemove(filePath) {
     const regex = new RegExp(`/\\*\\[\\s*${safeFolder}\\s*\\]\\*/`, "i");
 
     if (regex.test(content)) {
-      try {
-        fs.unlinkSync(filePath);
-        console.log("Archivo eliminado:", filePath);
-      } catch (err) {
-        console.error("No se pudo borrar el archivo:", filePath, err);
-      }
-      return true;
+      return {
+        type: "folder_obfuscated_pattern",
+        file: filePath,
+        risk: "critical",
+        reason: `El archivo contiene un comentario de ofuscación que coincide con la carpeta: [${folder}]`
+      };
     }
   }
 
@@ -152,20 +152,20 @@ function scan(root) {
 
     if (
       (name.endsWith(".js") || name.endsWith(".lua")) &&
-      containsFolderPatternAndRemove(fullPath)
+      containsFolderPattern(fullPath)
     ) {
       issues.push({
         type: "folder_obfuscated_pattern",
         file: fullPath,
         risk: "critical",
         reason:
-          "Archivo contiene patrón ofuscado que coincide con alguna carpeta de su ruta y ha sido eliminado",
+          "Archivo contiene patrón ofuscado que coincide con alguna carpeta de su ruta",
       });
       return;
     }
 
     if (name.endsWith(".lua")) {
-      issues.push(...analyzeLua(fullPath));
+      issues.push(...analyzeLua(fullPath, config));
     }
   });
 
