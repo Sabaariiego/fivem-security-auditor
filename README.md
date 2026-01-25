@@ -81,4 +81,4 @@ la velocidad de tu servidor.\
 
 ## 📝 Licencia
 
-MIT License
+Este proyecto está bajo la licencia [CC BY-NC 4.0](LICENSE). Se permite usarlo y modificarlo, pero **no para fines comerciales**.
