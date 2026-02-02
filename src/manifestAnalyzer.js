@@ -25,7 +25,6 @@ function isInsideHiddenFolder(filePath) {
       return true;
     }
   }
-
   return false;
 }
 
@@ -55,55 +54,54 @@ function analyzeManifest(filePath) {
       return;
     }
 
-    if (/^(server_script|shared_script)\s+["']/.test(trimmed)) {
-      currentBlock = trimmed.startsWith("server")
-        ? "server_scripts"
-        : "shared_scripts";
-    }
-
     if (!currentBlock) return;
 
-    const jsMatch = trimmed.match(/["']([^"']+\.js)["']/i);
-    if (!jsMatch) return;
+    if (currentBlock !== "server_scripts" && currentBlock !== "shared_scripts") {
+      return; 
+    }
 
-    const jsPath = jsMatch[1];
-    const fullJsPath = path.resolve(baseDir, jsPath);
-    const exists = fs.existsSync(fullJsPath);
 
-    const hasLuaCommentBlock =
-      trimmed.includes("--[[") && trimmed.includes("]]");
+    const jsMatches = [...trimmed.matchAll(/["']([^"']+\.js)["']/gi)];
 
-    if (
-      currentBlock === "shared_scripts" &&
-      exists &&
-      (isWindowsHidden(fullJsPath) || isInsideHiddenFolder(fullJsPath))
-    ) {
-      issues.push({
-        type: "manifest_backdoor",
-        file: filePath,
-        line: index + 1,
-        jsPath,
-        exists,
-        risk: "critical",
-        reason:
-          "JS en shared_scripts ubicado en archivo o carpeta oculta (attrib +h / +s)",
-      });
+    if (jsMatches.length === 0) {
       return;
     }
 
-    if (currentBlock === "server_scripts" && hasLuaCommentBlock) {
-      issues.push({
-        type: "manifest_backdoor",
-        file: filePath,
-        line: index + 1,
-        jsPath,
-        exists,
-        risk: "critical",
-        reason:
-          "JS oculto dentro de server_scripts usando comentario Lua (--[[ ]])",
-      });
-      return;
-    }
+    jsMatches.forEach((match) => {
+      const jsPath = match[1];
+      const fullJsPath = path.resolve(baseDir, jsPath);
+      const exists = fs.existsSync(fullJsPath);
+
+      const hidden =
+        exists &&
+        (isWindowsHidden(fullJsPath) || isInsideHiddenFolder(fullJsPath));
+
+      if (currentBlock === "shared_scripts" && hidden) {
+        issues.push({
+          type: "manifest_backdoor",
+          file: filePath,
+          line: index + 1,
+          jsPath,
+          exists,
+          risk: "critical",
+          reason:
+            "JS en shared_scripts ubicado en archivo o carpeta oculta",
+        });
+      }
+
+      if (currentBlock === "server_scripts") {
+        issues.push({
+          type: "manifest_backdoor",
+          file: filePath,
+          line: index + 1,
+          jsPath,
+          exists,
+          risk: "critical",
+          reason:
+            "JS dentro de server_scripts (posible backdoor)",
+        });
+      }
+    });
   });
 
   return issues;

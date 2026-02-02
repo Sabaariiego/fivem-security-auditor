@@ -22,6 +22,11 @@ Visita la web para acceder a la documentación completa, guías avanzadas y futu
     maliciosos.
 -   Generación de reportes JSON para integración con otras herramientas.
 
+## 🛠️ Requisitos
+
+Para ejecutar FiveM Security Auditor necesitas tener Node.js instalado **(versión 18 o superior recomendada)**.
+Descárgalo desde la web oficial: [nodejs](https://nodejs.org/)  
+
 ## 📝 Uso
 
 ``` bash
