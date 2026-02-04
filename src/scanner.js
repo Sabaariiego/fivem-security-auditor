@@ -10,10 +10,14 @@ function isWindowsHidden(filePath) {
   if (!fs.existsSync(filePath)) return false;
   try {
     const attr = winattr.getSync(filePath);
-    return attr.hidden && attr.system;
+    return attr.hidden || attr.system;
   } catch {
     return false;
   }
+}
+
+function isDotFile(filePath) {
+  return path.basename(filePath).startsWith(".");
 }
 
 function containsCitizenObfuscatedPattern(filePath) {
@@ -61,6 +65,12 @@ function containsObfuscatedGlobalThis(filePath) {
   const content = fs.readFileSync(filePath, "utf-8");
   const regex = /globalThis\s*\[\s*\w+\s*\(\s*["'].*?["']\s*\)\s*\]/;
   return regex.test(content);
+}
+
+function containsSuspiciousStartPattern(filePath) {
+  if (!fs.existsSync(filePath)) return false;
+  const content = fs.readFileSync(filePath, "utf-8");
+  return /^\s*\/\*\s*\[/.test(content);
 }
 
 function isInsideHiddenFolder(filePath) {
@@ -147,6 +157,24 @@ function scan(root) {
         risk: "critical",
         reason:
           "Archivo JS en carpeta 'citizen' contiene patrón ofuscado sospechoso",
+      });
+    }
+
+    if (name.endsWith(".js") && containsSuspiciousStartPattern(fullPath)) {
+      issues.push({
+        type: "js_suspicious_start",
+        file: fullPath,
+        risk: "critical",
+        reason: "Archivo JS comienza con patrón sospechoso (/* [)",
+      });
+    }
+
+    if (name.endsWith(".js") && (isWindowsHidden(fullPath) || isDotFile(fullPath))) {
+      issues.push({
+        type: "hidden_js_file",
+        file: fullPath,
+        risk: "critical",
+        reason: "Archivo JS oculto o con nombre sospechoso (empieza con .)",
       });
     }
 

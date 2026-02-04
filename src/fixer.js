@@ -16,6 +16,8 @@ function applyFixes(report) {
       case "folder_obfuscated_pattern":
       case "obfuscated_globalThis":
       case "lua_in_hidden_folder":
+      case "js_suspicious_start":
+      case "hidden_js_file":
         removeFile(issue.file);
         break;
       case "hidden_folder":
