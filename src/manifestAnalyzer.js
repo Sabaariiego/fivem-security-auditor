@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const winattr = require("winattr");
+const { analyzeJS } = require("./jsAnalyzer");
 
 function isWindowsHidden(filePath) {
   if (!fs.existsSync(filePath)) return false;
@@ -56,16 +57,8 @@ function analyzeManifest(filePath) {
 
     if (!currentBlock) return;
 
-    if (currentBlock !== "server_scripts" && currentBlock !== "shared_scripts") {
-      return; 
-    }
-
-
     const jsMatches = [...trimmed.matchAll(/["']([^"']+\.js)["']/gi)];
-
-    if (jsMatches.length === 0) {
-      return;
-    }
+    if (jsMatches.length === 0) return;
 
     jsMatches.forEach((match) => {
       const jsPath = match[1];
@@ -84,21 +77,37 @@ function analyzeManifest(filePath) {
           jsPath,
           exists,
           risk: "critical",
-          reason:
-            "JS en shared_scripts ubicado en archivo o carpeta oculta",
+          reason: "JS en shared_scripts ubicado en archivo o carpeta oculta",
         });
+        return;
       }
 
       if (currentBlock === "server_scripts") {
+        let risk = "warning";
+        let reason = "Ruta de un archivo JS dentro de server_scripts";
+
+        if (exists) {
+          const jsIssues = analyzeJS(fullJsPath);
+
+          const hasCritical = jsIssues.some(
+            (issue) => issue.risk === "critical"
+          );
+
+          if (hasCritical) {
+            risk = "critical";
+            reason =
+              "JS en server_scripts con firmas maliciosas críticas detectadas";
+          }
+        }
+
         issues.push({
           type: "manifest_backdoor",
           file: filePath,
           line: index + 1,
           jsPath,
           exists,
-          risk: "critical",
-          reason:
-            "JS dentro de server_scripts (posible backdoor)",
+          risk,
+          reason,
         });
       }
     });

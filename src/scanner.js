@@ -5,6 +5,7 @@ const { walk } = require("./utils");
 const { analyzeManifest } = require("./manifestAnalyzer");
 const { analyzeLua } = require("./luaAnalyzer");
 const config = require("../config/config.json");
+const { analyzeJS } = require("./jsAnalyzer");
 
 function isWindowsHidden(filePath) {
   if (!fs.existsSync(filePath)) return false;
@@ -144,6 +145,22 @@ function scan(root) {
       });
       issues.push(...manifestIssues);
       return;
+    }
+
+    if (name.endsWith(".js")) {
+        const jsIssues = analyzeJS(fullPath);
+        if (jsIssues.length > 0) {
+            issues.push(...jsIssues);
+        }
+
+        if (containsSuspiciousStartPattern(fullPath)) {
+             issues.push({
+               type: "js_suspicious_start",
+               file: fullPath,
+               risk: "critical",
+               reason: "Archivo JS comienza con patrón sospechoso (/* [)",
+             });
+        }
     }
 
     if (

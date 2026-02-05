@@ -2,9 +2,17 @@ const fs = require("fs");
 const path = require("path");
 
 function applyFixes(report) {
-  console.log("Aplicando fixes a", report.issues.length, "issues");
+  const criticalIssues = report.issues.filter(
+    issue => issue.risk === "critical"
+  );
 
-  report.issues.forEach(issue => {
+  console.log(
+    "Aplicando fixes a",
+    criticalIssues.length,
+    "issues críticas"
+  );
+
+  criticalIssues.forEach(issue => {
     console.log("Fix:", issue.type, issue.file);
 
     switch (issue.type) {
@@ -17,15 +25,21 @@ function applyFixes(report) {
       case "obfuscated_globalThis":
       case "lua_in_hidden_folder":
       case "js_suspicious_start":
+      case "js_backdoor_signature":
+      case "dynamic_global_loader":
+      case "heavily_obfuscated_network_script":
       case "hidden_js_file":
+      case "obfuscated_eval_loader":
         removeFile(issue.file);
         break;
+
       case "hidden_folder":
         removeFolder(issue.file);
         break;
     }
   });
 }
+
 
 function fixManifest(issue) {
   const manifest = issue.file;
