@@ -1,9 +1,44 @@
 const fs = require("fs");
 
+function checkTxAdminIntegrity(filePath, content) {
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    
+    const isInMonitorResource = normalizedPath.includes('/monitor/') && normalizedPath.endsWith('.js');
+    
+    if (!isInMonitorResource) {
+        return null;
+    }
+
+    const hexArrayRegex = /const\s+_0x[a-f0-9]+\s*=\s*\[/i;
+    const hexShiftRegex = /\(function\(_0x[a-f0-9]+,\s*_0x[a-f0-9]+\)\{/i;
+    const hasHexObfuscation = hexArrayRegex.test(content) && hexShiftRegex.test(content);
+
+    if (hasHexObfuscation) {
+        return {
+            type: "critical_core_injection",
+            file: filePath,
+            risk: "critical",
+            reason: "Se detectó código ofuscado inyectado en un archivo del recurso txAdmin (monitor)."
+        };
+    }
+
+    return true;
+}
+
 function analyzeJS(filePath) {
   if (!fs.existsSync(filePath)) return [];
 
   const content = fs.readFileSync(filePath, "utf-8");
+
+  const txCheck = checkTxAdminIntegrity(filePath, content);
+  if (txCheck) {
+      return [];
+  }
+    
+  if (txCheck && txCheck.risk === "critical") {
+    return [txCheck]; 
+  }
+
   const issues = [];
 
   const cleanContent = content.replace(/['"\s+]/g, "");
