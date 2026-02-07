@@ -33,6 +33,7 @@ function applyFixes(report) {
         case "js_suspicious_start":
         case "js_backdoor_signature":
         case "dynamic_global_loader":
+        case "xor_eval_loader":
         case "heavily_obfuscated_network_script":
         case "hidden_js_file":
         case "obfuscated_eval_loader":

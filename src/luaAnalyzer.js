@@ -1,35 +1,136 @@
 const fs = require("fs");
 
-function analyzeLua(filePath, patterns = {}) {
-  const content = fs.readFileSync(filePath, "utf8");
+function checkTxAdminIntegrity(filePath, content) {
+  const normalizedPath = filePath.replace(/\\/g, "/");
+  const isInMonitorResource =
+    normalizedPath.includes("/monitor/") && normalizedPath.endsWith(".js");
+
+  if (!isInMonitorResource) {
+    return null;
+  }
+
+  const hexArrayRegex = /const\s+_0x[a-f0-9]+\s*=\s*\[/i;
+  const hexShiftRegex = /\(function\(_0x[a-f0-9]+,\s*_0x[a-f0-9]+\)\{/i;
+
+  const hasHexObfuscation =
+    hexArrayRegex.test(content) && hexShiftRegex.test(content);
+
+  if (hasHexObfuscation) {
+    return {
+      type: "critical_core_injection",
+      file: filePath,
+      risk: "critical",
+      reason:
+        "Se detectó código ofuscado inyectado en un archivo del recurso txAdmin (monitor).",
+    };
+  }
+
+  return true;
+}
+
+function analyzeJS(filePath) {
+  if (!fs.existsSync(filePath)) return [];
+
+  const content = fs.readFileSync(filePath, "utf-8");
   const issues = [];
 
-  (patterns.dangerousLuaCalls || []).forEach(call => {
-    if (content.includes(call)) {
+  const txCheck = checkTxAdminIntegrity(filePath, content);
+
+  if (txCheck && txCheck.risk === "critical") {
+    return [txCheck];
+  }
+
+  if (txCheck === true) {
+    return [];
+  }
+
+  const cleanContent = content.replace(/['"\s+]/g, "").toLowerCase();
+
+  const threats = [
+    {
+      pattern: "cipher-panel.me",
+      name: "Cipher Panel Backdoor (Domain)",
+      risk: "critical",
+    },
+    {
+      pattern: "authentic777/socket.io",
+      name: "Authentic777 Socket Bundle (Malicious Loader)",
+      risk: "critical",
+    },
+    {
+      pattern: "https://bookshopa.org",
+      name: "Cipher Panel Malicious Host",
+      risk: "critical",
+    },
+  ];
+
+  for (const threat of threats) {
+    if (cleanContent.includes(threat.pattern)) {
       issues.push({
-        type: "lua_dangerous_call",
+        type: "js_backdoor_signature",
+        file: filePath,
+        risk: threat.risk,
+        reason: `Detectado patrón conocido: ${threat.name}`,
+      });
+    }
+  }
+
+  const globalThisDynamicRegex =
+    /globalThis\s*\[\s*[a-zA-Z_$][\w$]*\s*\]/;
+
+  if (globalThisDynamicRegex.test(content)) {
+    issues.push({
+      type: "dynamic_global_loader",
+      file: filePath,
+      risk: "critical",
+      reason: "Uso de globalThis con clave dinámica (loader/backdoor típico)",
+    });
+  }
+
+  const evalRegex = /\beval\s*\(/i;
+  const fromCharCodeRegex = /String\.fromCharCode\s*\(/i;
+  const xorRegex = /\^\s*[a-zA-Z_$][\w$]*|\^\s*\d+/;
+
+  if (
+    evalRegex.test(content) &&
+    fromCharCodeRegex.test(content) &&
+    xorRegex.test(content)
+  ) {
+    issues.push({
+      type: "xor_eval_loader",
+      file: filePath,
+      risk: "critical",
+      reason: "Loader ofuscado con XOR + String.fromCharCode + eval",
+    });
+  }
+
+  const hexArrayRegex = /const\s+_0x[a-f0-9]+\s*=\s*\[/i;
+  const hexShiftRegex = /\(function\(_0x[a-f0-9]+,\s*_0x[a-f0-9]+\)\{/i;
+
+  if (hexArrayRegex.test(content) && hexShiftRegex.test(content)) {
+    if (
+      cleanContent.includes("http") ||
+      cleanContent.includes("performhttprequest")
+    ) {
+      issues.push({
+        type: "heavily_obfuscated_network_script",
+        file: filePath,
+        risk: "critical",
+        reason:
+          "Script fuertemente ofuscado con capacidades de red (estructura Javascript-Obfuscator)",
+      });
+    } else {
+      issues.push({
+        type: "heavily_obfuscated_script",
         file: filePath,
         risk: "warning",
-        reason: `Uso de función sensible (${call})`
+        reason:
+          "Script fuertemente ofuscado (posible evasión de análisis)",
       });
     }
-  });
-
-  (patterns.extendedPatterns || []).forEach(pattern => {
-    const regex = new RegExp(pattern.regex, "i");
-
-    if (regex.test(content)) {
-      issues.push({
-        type: "lua_extended_pattern",
-        file: filePath,
-        risk: pattern.risk || "warning",
-        reason: pattern.reason,
-        name: pattern.name
-      });
-    }
-  });
+  }
 
   return issues;
 }
 
-module.exports = { analyzeLua };
+module.exports = { analyzeJS };

@@ -69,47 +69,39 @@ function analyzeManifest(filePath) {
         exists &&
         (isWindowsHidden(fullJsPath) || isInsideHiddenFolder(fullJsPath));
 
-      if (currentBlock === "shared_scripts" && hidden) {
-        issues.push({
-          type: "manifest_backdoor",
-          file: filePath,
-          line: index + 1,
-          jsPath,
-          exists,
-          risk: "critical",
-          reason: "JS en shared_scripts ubicado en archivo o carpeta oculta",
-        });
-        return;
-      }
+        if (currentBlock === "server_scripts" || currentBlock === "shared_scripts") {
+          let risk = currentBlock === "shared_scripts" ? "warning" : "warning";
+          let reason = `Ruta de un archivo JS dentro de ${currentBlock}`;
 
-      if (currentBlock === "server_scripts") {
-        let risk = "warning";
-        let reason = "Ruta de un archivo JS dentro de server_scripts";
+          if (exists) {
+            const jsIssues = analyzeJS(fullJsPath);
+            const hasCritical = jsIssues.some(
+              (issue) => issue.risk === "critical"
+            );
 
-        if (exists) {
-          const jsIssues = analyzeJS(fullJsPath);
+            if (hasCritical) {
+              risk = "critical";
+              reason = `JS en ${currentBlock} con firmas maliciosas críticas detectadas`;
+            }
 
-          const hasCritical = jsIssues.some(
-            (issue) => issue.risk === "critical"
-          );
-
-          if (hasCritical) {
-            risk = "critical";
-            reason =
-              "JS en server_scripts con firmas maliciosas críticas detectadas";
+            if (currentBlock === "shared_scripts" && hidden) {
+              risk = "critical";
+              reason =
+                "JS en shared_scripts con firmas maliciosas y ubicado en archivo o carpeta oculta";
+            }
           }
+
+          issues.push({
+            type: "manifest_backdoor",
+            file: filePath,
+            line: index + 1,
+            jsPath,
+            exists,
+            risk,
+            reason,
+          });
         }
 
-        issues.push({
-          type: "manifest_backdoor",
-          file: filePath,
-          line: index + 1,
-          jsPath,
-          exists,
-          risk,
-          reason,
-        });
-      }
     });
   });
 
