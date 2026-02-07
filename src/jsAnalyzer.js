@@ -72,6 +72,15 @@ function analyzeJS(filePath) {
     }
   }
 
+  if (cleanContent.includes("/ojj")) {
+    issues.push({
+      type: "js_backdoor_signature",
+      file: filePath,
+      risk: "critical",
+      reason: "Detectado endpoint malicioso con patrón Cipher Panel (/OJJ)",
+    });
+  }
+
   const globalThisDynamicRegex =
     /globalThis\s*\[\s*[a-zA-Z_$][\w$]*\s*\(/;
 
