@@ -63,6 +63,11 @@ Los reportes se generan en formato JSON dentro de la carpeta `reports/`.
 }
 ```
 
+## 🛡️ Amenazas detectadas
+Esta herramienta está diseñada específicamente para localizar rastros de:
+- **Cipher Panel**
+- **Blum Panel**
+
 ## 🛡️ Servicios recomendados
 
 ### ColdHosting
