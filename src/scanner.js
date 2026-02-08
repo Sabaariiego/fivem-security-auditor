@@ -6,6 +6,7 @@ const { analyzeManifest } = require("./manifestAnalyzer");
 const { analyzeLua } = require("./luaAnalyzer");
 const config = require("../config/config.json");
 const { analyzeJS } = require("./jsAnalyzer");
+const { analyzeHTML } = require("./htmlAnalyzer");
 
 function isWindowsHidden(filePath) {
   if (!fs.existsSync(filePath)) return false;
@@ -212,6 +213,15 @@ function scan(root) {
     if (name.endsWith(".lua")) {
       issues.push(...analyzeLua(fullPath, config));
     }
+
+    if (name.endsWith(".html")) {
+      const htmlIssues = analyzeHTML(fullPath);
+      if (htmlIssues.length > 0) {
+        issues.push(...htmlIssues);
+      }
+    }
+
+
   });
 
   const uniqueIssues = new Map();

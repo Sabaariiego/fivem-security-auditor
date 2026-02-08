@@ -1,6 +1,31 @@
 const fs = require("fs");
 const path = require("path");
 
+function removeMaliciousInlineScript(filePath) {
+  let content = fs.readFileSync(filePath, "utf8");
+
+  const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+
+  content = content.replace(scriptRegex, (fullMatch, scriptContent) => {
+    let score = 0;
+
+    if (/window\.addEventListener\s*\(\s*['"]message['"]/.test(scriptContent)) score++;
+    if (/\beval\s*\(/.test(scriptContent)) score++;
+    if (/String\.fromCharCode\s*\(/i.test(scriptContent)) score++;
+    if (/GetParentResourceName\s*\(/i.test(scriptContent)) score++;
+    if (/fetch\s*\(/i.test(scriptContent)) score++;
+
+    if (score >= 4) {
+      return "";
+    }
+
+    return fullMatch;
+  });
+
+  fs.writeFileSync(filePath, content, "utf8");
+}
+
+
 function fixRemoteVMLoader(file) {
   if (!fs.existsSync(file)) return;
 
@@ -24,6 +49,31 @@ function fixRemoteVMLoader(file) {
     console.log(`⚠ No se encontraron líneas del loader en:`, file);
   }
 }
+
+function fixLuaSingleLineBackdoor(file) {
+  if (!fs.existsSync(file)) return;
+
+  const content = fs.readFileSync(file, "utf8");
+  const lines = content.split(/\r?\n/);
+
+  const backdoorSignature = /;\(\(function\(\).*?gsub\("\.\.".*?tonumber\(h,16\).*?_G\[.*?\]\(\).*?end\)\(\)\s*end\s*or\s*function\(\);\(function\(/i;
+
+  let removed = 0;
+
+  const cleaned = lines.filter(line => {
+    if (backdoorSignature.test(line)) {
+      removed++;
+      return false;
+    }
+    return true;
+  });
+
+  if (removed > 0) {
+    fs.writeFileSync(file, cleaned.join("\n"));
+    console.log(`Backdoor Lua eliminado (${removed} línea):`, file);
+  }
+}
+
 
 
 function applyFixes(report) {
@@ -61,10 +111,12 @@ function applyFixes(report) {
         case "lua_in_hidden_folder":
         case "js_suspicious_start":
         case "js_backdoor_signature":
+        case "filesystem_export_backdoor":
         case "dynamic_global_loader":
         case "xor_eval_loader":
         case "heavily_obfuscated_network_script":
         case "hidden_js_file":
+        case "txadmin_playersdb_export":
         case "critical_core_injection":
         case "obfuscated_eval_loader":
           removeFile(issue.file);
@@ -73,6 +125,15 @@ function applyFixes(report) {
         case "hidden_folder":
           removeFolder(issue.file);
           break;
+
+        case "lua_single_line_obfuscated_backdoor":
+          fixLuaSingleLineBackdoor(issue.file);
+          break;
+
+        case "html_nui_eval_backdoor":
+          removeMaliciousInlineScript(issue.file);
+          break;
+
       }
     } catch (err) {
       console.error(`[ERROR] No se pudo aplicar el fix en ${issue.file}:`, err.message);

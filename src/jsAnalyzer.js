@@ -29,6 +29,51 @@ function checkTxAdminIntegrity(filePath, content) {
   return null;
 }
 
+function checkTxAdminPlayersDBExport(filePath, content) {
+  const normalized = content
+  .toLowerCase()
+  .replace(/\s+/g, "");
+
+
+  const usesFsPromises =
+    normalized.includes("require('fs').promises") ||
+    normalized.includes('require("fs").promises');
+
+  const usesPath =
+    normalized.includes("require('path')") ||
+    normalized.includes('require("path")');
+
+  const usesGlobalExports =
+    normalized.includes("global.exports(");
+
+  const accessesPlayersDB =
+    normalized.includes("playersdb.json") ||
+    (
+      normalized.includes("txdata") &&
+      normalized.includes("default") &&
+      normalized.includes("data") &&
+      normalized.includes("playersdb.json")
+    );
+
+  if (
+    usesFsPromises &&
+    usesPath &&
+    usesGlobalExports &&
+    accessesPlayersDB
+  ) {
+    return {
+      type: "txadmin_playersdb_export",
+      file: filePath,
+      risk: "critical",
+      reason:
+        "Export expone acceso a playersDB.json de txAdmin (txData) mediante filesystem"
+    };
+  }
+
+  return null;
+}
+
+
 function analyzeJS(filePath) {
   if (!fs.existsSync(filePath)) return [];
 
@@ -42,12 +87,30 @@ function analyzeJS(filePath) {
     normalizedPath.includes("/monitor/") ||
     normalizedPath.includes("/monitor/core/");
 
+  if (
+    content.includes("global.exports") &&
+    content.includes("fs.") &&
+    content.includes("GetResourcePath")
+  ) {
+    issues.push({
+      type: "filesystem_export_backdoor",
+      file: filePath,
+      risk: "critical",
+      reason: "Exporta acceso completo al sistema de archivos del recurso"
+    });
+  }
 
 
   const txCheck = checkTxAdminIntegrity(filePath, content);
   if (txCheck && txCheck.risk === "critical") {
     return [txCheck];
   }
+
+  const txPlayersDBExport = checkTxAdminPlayersDBExport(filePath, content);
+  if (txPlayersDBExport) {
+    return [txPlayersDBExport];
+  }
+
 
   const cleanContent = content.replace(/['"\s+]/g, "");
 
