@@ -1,6 +1,31 @@
 const fs = require("fs");
 const path = require("path");
 
+function fixRemoteVMLoader(file) {
+  if (!fs.existsSync(file)) return;
+
+  let lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+  let removed = 0;
+
+  const suspiciousLine = /(htt['"]\s*\+\s*['"]ps|Buffer\.from|\\x6f\\x6e|String\.fromCharCode|\\x76\\x6d|runInThisContext)/i;
+
+  lines = lines.filter(line => {
+    if (suspiciousLine.test(line)) {
+      removed++;
+      return false; 
+    }
+    return true;
+  });
+
+  if (removed > 0) {
+    fs.writeFileSync(file, lines.join("\n"));
+    console.log(`✔ Loader remoto eliminado (${removed} líneas):`, file);
+  } else {
+    console.log(`⚠ No se encontraron líneas del loader en:`, file);
+  }
+}
+
+
 function applyFixes(report) {
   const criticalIssues = report.issues.filter(
     issue => issue.risk === "critical"
@@ -26,6 +51,10 @@ function applyFixes(report) {
           fixManifest(issue);
           break;
 
+        case "remote_vm_loader":
+          fixRemoteVMLoader(issue.file);
+          break;
+
         case "citizen_obfuscated_js":
         case "folder_obfuscated_pattern":
         case "obfuscated_globalThis":
@@ -36,6 +65,7 @@ function applyFixes(report) {
         case "xor_eval_loader":
         case "heavily_obfuscated_network_script":
         case "hidden_js_file":
+        case "critical_core_injection":
         case "obfuscated_eval_loader":
           removeFile(issue.file);
           break;

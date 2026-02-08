@@ -2,6 +2,20 @@ const fs = require("fs");
 const path = require("path");
 const winattr = require("winattr");
 const { analyzeJS } = require("./jsAnalyzer");
+const { globSync } = require("glob");
+
+function resolveJsPaths(baseDir, jsPath) {
+  if (!jsPath.includes("*")) {
+    const full = path.resolve(baseDir, jsPath);
+    return fs.existsSync(full) ? [full] : [];
+  }
+
+  return globSync(jsPath, {
+    cwd: baseDir,
+    absolute: true,
+    nodir: true,
+  });
+}
 
 function isWindowsHidden(filePath) {
   if (!fs.existsSync(filePath)) return false;
@@ -62,46 +76,55 @@ function analyzeManifest(filePath) {
 
     jsMatches.forEach((match) => {
       const jsPath = match[1];
-      const fullJsPath = path.resolve(baseDir, jsPath);
-      const exists = fs.existsSync(fullJsPath);
+      const resolvedFiles = resolveJsPaths(baseDir, jsPath);
 
-      const hidden =
-        exists &&
-        (isWindowsHidden(fullJsPath) || isInsideHiddenFolder(fullJsPath));
+      if (resolvedFiles.length === 0) {
+        issues.push({
+          type: "manifest_backdoor",
+          file: filePath,
+          line: index + 1,
+          jsPath,
+          exists: false,
+          risk: "warning",
+          reason: "El patrón JS no coincide con ningún archivo",
+        });
+        return;
+      }
 
-        if (currentBlock === "server_scripts" || currentBlock === "shared_scripts") {
-          let risk = currentBlock === "shared_scripts" ? "warning" : "warning";
-          let reason = `Ruta de un archivo JS dentro de ${currentBlock}`;
+      resolvedFiles.forEach((fullJsPath) => {
+        const hidden =
+          isWindowsHidden(fullJsPath) || isInsideHiddenFolder(fullJsPath);
 
-          if (exists) {
-            const jsIssues = analyzeJS(fullJsPath);
-            const hasCritical = jsIssues.some(
-              (issue) => issue.risk === "critical"
-            );
+        let risk = "warning";
+        let reason = `Ruta de un archivo JS dentro de ${currentBlock}`;
+        
+        const jsIssues = analyzeJS(fullJsPath);
+        const hasCritical = jsIssues.some(
+          (issue) => issue.risk === "critical"
+        );
 
-            if (hasCritical) {
-              risk = "critical";
-              reason = `JS en ${currentBlock} con firmas maliciosas críticas detectadas`;
-            }
-
-            if (currentBlock === "shared_scripts" && hidden) {
-              risk = "critical";
-              reason =
-                "JS en shared_scripts con firmas maliciosas y ubicado en archivo o carpeta oculta";
-            }
-          }
-
-          issues.push({
-            type: "manifest_backdoor",
-            file: filePath,
-            line: index + 1,
-            jsPath,
-            exists,
-            risk,
-            reason,
-          });
+        if (hasCritical) {
+          risk = "critical";
+          reason = `JS en ${currentBlock} con firmas maliciosas críticas detectadas`;
         }
 
+        if (currentBlock === "shared_scripts" && hidden) {
+          risk = "critical";
+          reason =
+            "JS en shared_scripts con firmas maliciosas y ubicado en archivo o carpeta oculta";
+        }
+
+        issues.push({
+          type: "manifest_backdoor",
+          file: filePath,
+          line: index + 1,
+          jsPath,
+          resolvedFile: fullJsPath,
+          exists: true,
+          risk,
+          reason,
+        });
+      });
     });
   });
 

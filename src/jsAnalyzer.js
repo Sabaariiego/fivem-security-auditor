@@ -1,45 +1,53 @@
 const fs = require("fs");
 
+function getLineNumber(content, index) {
+  return content.slice(0, index).split("\n").length;
+}
+
+
 function checkTxAdminIntegrity(filePath, content) {
-    const normalizedPath = filePath.replace(/\\/g, '/');
-    
-    const isInMonitorResource = normalizedPath.includes('/monitor/') && normalizedPath.endsWith('.js');
-    
-    if (!isInMonitorResource) {
-        return null;
-    }
+  const normalizedPath = filePath.replace(/\\/g, "/");
 
-    const hexArrayRegex = /const\s+_0x[a-f0-9]+\s*=\s*\[/i;
-    const hexShiftRegex = /\(function\(_0x[a-f0-9]+,\s*_0x[a-f0-9]+\)\{/i;
-    const hasHexObfuscation = hexArrayRegex.test(content) && hexShiftRegex.test(content);
+  const isInMonitorResource =
+    normalizedPath.includes("/monitor/") && normalizedPath.endsWith(".js");
 
-    if (hasHexObfuscation) {
-        return {
-            type: "critical_core_injection",
-            file: filePath,
-            risk: "critical",
-            reason: "Se detectó código ofuscado inyectado en un archivo del recurso txAdmin (monitor)."
-        };
-    }
+  if (!isInMonitorResource) return null;
 
-    return true;
+  const hexArrayRegex = /const\s+_0x[a-f0-9]+\s*=\s*\[/i;
+  const hexShiftRegex = /\(function\(_0x[a-f0-9]+,\s*_0x[a-f0-9]+\)\{/i;
+
+  if (hexArrayRegex.test(content) && hexShiftRegex.test(content)) {
+    return {
+      type: "critical_core_injection",
+      file: filePath,
+      risk: "critical",
+      reason:
+        "Se detectó código ofuscado inyectado en un archivo del recurso txAdmin (monitor).",
+    };
+  }
+
+  return null;
 }
 
 function analyzeJS(filePath) {
   if (!fs.existsSync(filePath)) return [];
 
   const content = fs.readFileSync(filePath, "utf-8");
+  const issues = [];
+  const normalizedPath = filePath.replace(/\\/g, "/");
+
+  const customfilter =
+    normalizedPath.includes("/yarn/") ||
+    normalizedPath.includes("/screenshot-basic/") ||
+    normalizedPath.includes("/monitor/") ||
+    normalizedPath.includes("/monitor/core/");
+
+
 
   const txCheck = checkTxAdminIntegrity(filePath, content);
-  if (txCheck) {
-      return [];
-  }
-    
   if (txCheck && txCheck.risk === "critical") {
-    return [txCheck]; 
+    return [txCheck];
   }
-
-  const issues = [];
 
   const cleanContent = content.replace(/['"\s+]/g, "");
 
@@ -47,18 +55,18 @@ function analyzeJS(filePath) {
     {
       pattern: "cipher-panel.me",
       name: "Cipher Panel Backdoor (Domain)",
-      risk: "critical"
+      risk: "critical",
     },
     {
       pattern: "Authentic777/Socket.io",
       name: "Authentic777 Socket Bundle (Malicious Loader)",
-      risk: "critical"
+      risk: "critical",
     },
     {
       pattern: "https://bookshopa.org",
       name: "Cipher Panel Malicious Host",
-      risk: "critical"
-    }
+      risk: "critical",
+    },
   ];
 
   for (const threat of threats) {
@@ -67,7 +75,7 @@ function analyzeJS(filePath) {
         type: "js_backdoor_signature",
         file: filePath,
         risk: threat.risk,
-        reason: `Detectado patrón ofuscado conocido: ${threat.name}`
+        reason: `Detectado patrón ofuscado conocido: ${threat.name}`,
       });
     }
   }
@@ -81,15 +89,49 @@ function analyzeJS(filePath) {
     });
   }
 
+  const dynamicHttpsRequire =
+    /require\s*\(\s*['"]htt['"]\s*\+\s*['"]ps['"]\s*\)/i;
+
+  const base64StringDecode =
+    /Buffer\.from\s*\(\s*['"][A-Za-z0-9+/=]+['"]\s*,\s*['"]base64['"]\s*\)\.toString/i;
+
+  const streamCollector =
+    /\.on\s*\(\s*['"]da['"]\s*\+\s*['"]ta['"]|\['\\x6f\\x6e'\]/i;
+
+  const vmViaCharCode =
+    /require\s*\(\s*['"]\\x76\\x6d['"]\s*\)|String\.fromCharCode\s*\(/i;
+
+const httpsMatch = content.match(dynamicHttpsRequire);
+
+    if (
+      httpsMatch &&
+      base64StringDecode.test(content) &&
+      streamCollector.test(content) &&
+      vmViaCharCode.test(content)
+    ) {
+      const line = getLineNumber(content, httpsMatch.index);
+
+      issues.push({
+        type: "remote_vm_loader",
+        file: filePath,
+        line,
+        risk: "critical",
+        reason:
+          "Backdoor Node.js detectado: descarga código remoto y lo ejecuta dinámicamente (HTTPS + base64 + VM ofuscado)",
+      });
+    }
+
+
   const globalThisDynamicRegex =
     /globalThis\s*\[\s*[a-zA-Z_$][\w$]*\s*\(/;
 
-  if (globalThisDynamicRegex.test(content)) {
+  if (!customfilter && globalThisDynamicRegex.test(content)) {
     issues.push({
       type: "dynamic_global_loader",
       file: filePath,
       risk: "critical",
-      reason: "Uso de globalThis con clave dinámica (loader/backdoor típico)"
+      reason:
+        "Uso de globalThis con clave dinámica (loader/backdoor típico)",
     });
   }
 
@@ -98,6 +140,7 @@ function analyzeJS(filePath) {
   const xorRegex = /\^\s*\d+/;
 
   if (
+    !customfilter &&
     evalRegex.test(content) &&
     unicodeRegex.test(content) &&
     xorRegex.test(content)
@@ -107,7 +150,7 @@ function analyzeJS(filePath) {
       file: filePath,
       risk: "critical",
       reason:
-        "Loader ofuscado con eval + unicode + XOR (ejecución dinámica maliciosa)"
+        "Loader ofuscado con eval + unicode + XOR (ejecución dinámica maliciosa)",
     });
   }
 
@@ -115,20 +158,25 @@ function analyzeJS(filePath) {
   const hexShiftRegex = /\(function\(_0x[a-f0-9]+,\s*_0x[a-f0-9]+\)\{/i;
 
   if (hexArrayRegex.test(content) && hexShiftRegex.test(content)) {
-    if (cleanContent.includes("http") || cleanContent.includes("performhttprequest")) {
+    const hasNetwork =
+      cleanContent.includes("http") ||
+      cleanContent.includes("performhttprequest");
+
+    if (hasNetwork) {
       issues.push({
         type: "heavily_obfuscated_network_script",
         file: filePath,
         risk: "critical",
         reason:
-          "Script fuertemente ofuscado con capacidades de red (estructura Javascript-Obfuscator)"
+          "Script fuertemente ofuscado con capacidades de red (estructura Javascript-Obfuscator)",
       });
-    } else {
+    } else if (!customfilter) {
       issues.push({
         type: "heavily_obfuscated_script",
         file: filePath,
         risk: "warning",
-        reason: "Script fuertemente ofuscado (posible evasión de análisis)"
+        reason:
+          "Script fuertemente ofuscado (posible evasión de análisis)",
       });
     }
   }
