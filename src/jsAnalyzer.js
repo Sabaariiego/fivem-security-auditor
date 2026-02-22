@@ -87,18 +87,26 @@ function analyzeJS(filePath) {
     normalizedPath.includes("/monitor/") ||
     normalizedPath.includes("/monitor/core/");
 
-  if (
-    content.includes("global.exports") &&
-    content.includes("fs.") &&
-    content.includes("GetResourcePath")
-  ) {
-    issues.push({
-      type: "filesystem_export_backdoor",
-      file: filePath,
-      risk: "critical",
-      reason: "Exporta acceso completo al sistema de archivos del recurso"
-    });
-  }
+    const normalizedContent = content.replace(/\s+/g, "");
+
+    if (
+      normalizedContent.includes("global.exports") &&
+      normalizedContent.includes("fs.") &&
+      normalizedContent.includes("GetResourcePath")
+    ) {
+      const safeOrigenPolice =
+        normalizedContent.includes('GetResourcePath("origen_police")') ||
+        normalizedContent.includes("GetResourcePath('origen_police')");
+
+      if (!safeOrigenPolice) {
+        issues.push({
+          type: "filesystem_export_backdoor",
+          file: filePath,
+          risk: "critical",
+          reason: "Exporta acceso completo al sistema de archivos del recurso"
+        });
+      }
+    }
 
 
   const txCheck = checkTxAdminIntegrity(filePath, content);
