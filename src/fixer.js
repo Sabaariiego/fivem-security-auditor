@@ -134,11 +134,62 @@ function applyFixes(report) {
           removeMaliciousInlineScript(issue.file);
           break;
 
+        case "dll_known_backdoor":
+        case "dll_critical_indicators":
+        case "dll_combo_rat":
+        case "dll_combo_rce_fivem":
+        case "dll_combo_evasion_network":
+          removeFile(issue.file);
+          break;
+
+        case "manifest_dll_reference":
+          fixManifestDll(issue);
+          break;
+
       }
     } catch (err) {
       console.error(`[ERROR] No se pudo aplicar el fix en ${issue.file}:`, err.message);
     }
   });
+}
+
+function fixManifestDll(issue) {
+  const manifest = issue.file;
+  try {
+    if (!fs.existsSync(manifest)) return;
+
+    let lines = fs.readFileSync(manifest, "utf8").split(/\r?\n/);
+
+    if (issue.dllPath) {
+      const escaped = issue.dllPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const patterns = [
+        new RegExp(`['"]${escaped}['"]\\s*,?`, "g"),
+        new RegExp(`,\\s*['"]${escaped}['"]`, "g"),
+      ];
+
+      lines = lines.map(line => {
+        let out = line;
+        patterns.forEach(rx => { out = out.replace(rx, ""); });
+        return out;
+      });
+
+      const dllFile = path.resolve(path.dirname(manifest), issue.dllPath);
+      removeFile(dllFile);
+
+      console.log("Referencia DLL eliminada del manifest:", issue.dllPath);
+    }
+
+    for (let i = 0; i < lines.length - 1; i++) {
+      if (lines[i].trim().endsWith(",") && lines[i + 1].trim().startsWith("}")) {
+        lines[i] = lines[i].replace(/,+\s*$/, "");
+      }
+    }
+
+    fs.writeFileSync(manifest, lines.join("\n"));
+    console.log("fxmanifest reparado (DLL eliminado):", manifest);
+  } catch (err) {
+    console.error("Error reparando manifest DLL:", err.message);
+  }
 }
 
 function fixManifest(issue) {

@@ -93,12 +93,19 @@ function analyzeManifest(filePath) {
   lines.forEach((line, index) => {
     const trimmed = line.trim();
 
+    let isSingleLine = false;
+
     if (/^(server_scripts|shared_scripts)\s*=?\s*\{/.test(trimmed)) {
       currentBlock = trimmed.startsWith("server")
         ? "server_scripts"
         : "shared_scripts";
-      inBlock = true;
-      return;
+      if (trimmed.includes("}")) {
+        isSingleLine = true;
+        inBlock = false;
+      } else {
+        inBlock = true;
+        return;
+      }
     }
 
     if (inBlock && trimmed.startsWith("}")) {
@@ -173,6 +180,8 @@ function analyzeManifest(filePath) {
         });
       });
     });
+
+    if (isSingleLine) currentBlock = null;
   });
 
   return issues;

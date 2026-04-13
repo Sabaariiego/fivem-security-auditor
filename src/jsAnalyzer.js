@@ -76,7 +76,10 @@ function checkTxAdminIntegrity(filePath, content) {
 }
 
 function checkTxAdminPlayersDBExport(filePath, content) {
-  const normalized = content.toLowerCase().replace(/\s+/g, "");
+  const stripped = content
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
+  const normalized = stripped.toLowerCase().replace(/\s+/g, "");
 
   const usesFsPromises =
     normalized.includes("require('fs').promises") ||
@@ -256,6 +259,18 @@ function analyzeJS(filePath) {
         risk: "critical",
         reason:
           "Loader ofuscado con eval + unicode + XOR (ejecución dinámica maliciosa)",
+      });
+    }
+
+    const intArrayRegex = /const\s+\w+\s*=\s*\[\s*\d+\s*,\s*\d+\s*,\s*\d+/;
+    const xorFuncRegex = /String\.fromCharCode\s*\(\s*\w+\[[\w]+\]\s*\^\s*\w+\s*\)/;
+
+    if (evalRegex.test(content) && intArrayRegex.test(content) && xorFuncRegex.test(content)) {
+      issues.push({
+        type: "obfuscated_eval_loader",
+        file: filePath,
+        risk: "critical",
+        reason: "Loader ofuscado con array de enteros + XOR + eval (ejecución dinámica maliciosa)",
       });
     }
 
