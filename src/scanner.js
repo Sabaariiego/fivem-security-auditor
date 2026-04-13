@@ -119,20 +119,17 @@ function scan(root) {
 
     scannedFiles++;
 
-    if (name.endsWith(".dll")) {
+    if (name.endsWith(".net.dll")) {
       if (isExcludedDLL(fullPath)) return;
 
       const dllIssues = analyzeDLL(fullPath);
-      const relevant = dllIssues.filter(
-        (i) => i.risk !== "info" || i.type === "dll_native"
-      );
+      const relevant = dllIssues.filter((i) => i.risk !== "info");
       if (relevant.length > 0) {
         issues.push(...relevant);
       }
       return;
     }
 
-    // ── Lua en carpeta oculta ─────────────────────────────────────────────────
     if (name.endsWith(".lua") && isInsideHiddenFolder(fullPath)) {
       issues.push({
         type: "lua_in_hidden_folder",
