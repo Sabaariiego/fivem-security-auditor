@@ -50,9 +50,7 @@ function analyzeDllReference(filePath, baseDir, currentBlock, dllPath, lineNumbe
   const dllName = path.basename(dllPath).toLowerCase();
 
   const isMonitorPattern =
-    /monitor/i.test(dllPath) ||
-    dllPath.toLowerCase().endsWith(".net.dll") ||
-    dllPath.toLowerCase().endsWith(".net");
+    dllPath.toLowerCase().endsWith(".net.dll");
 
   let risk = "warning";
   let reason = `Ensamblado .NET ('${dllPath}') referenciado directamente en ${currentBlock} — revisar`;
@@ -123,7 +121,7 @@ function analyzeManifest(filePath) {
     if (!currentBlock) return;
 
     const dllMatches = [
-      ...trimmed.matchAll(/["']([^"']+\.(?:net\.dll|net|dll))["']/gi),
+      ...trimmed.matchAll(/["']([^"']+\.net\.dll)["']/gi),
     ];
 
     dllMatches.forEach((match) => {
