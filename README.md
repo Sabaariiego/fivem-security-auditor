@@ -6,8 +6,25 @@ scripts ofuscados, archivos ocultos y otros posibles riesgos. Además,
 permite aplicar fixes automáticos para eliminar archivos sospechosos de
 manera segura.
 
-[Web Oficial](https://fivem-auditor.sabaariiego.dev/)  
-Visita la web para acceder a la documentación completa, guías avanzadas y futuras actualizaciones.
+## 🌿 Rama Beta
+
+Existe una rama llamada `beta` que incluye **nuevas detecciones y mejoras en desarrollo** que aún no han sido completamente testeadas.
+
+> ⚠️ **Importante:**
+>
+> - Estas funcionalidades pueden contener errores o falsos positivos.
+> - El uso de la rama `beta` es **bajo tu propia responsabilidad**.
+> - Se recomienda utilizarla únicamente en entornos de prueba y **no en producción**.
+> - Siempre realiza un **backup completo** antes de usarla.
+
+### Cómo usar la rama beta
+
+```bash
+git clone -b beta https://github.com/Sabaariiego/fivem-security-auditor.git
+cd fivem-security-auditor
+npm install
+node index.js ./resources
+```
 
 ## 🚀 Características
 
