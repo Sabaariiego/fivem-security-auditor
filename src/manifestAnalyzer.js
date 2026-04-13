@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const winattr = require("winattr");
 const { analyzeJS } = require("./jsAnalyzer");
+const { analyzeDLL } = require("./dllAnalyzer");
 const { globSync } = require("glob");
 
 function resolveJsPaths(baseDir, jsPath) {
@@ -43,6 +44,56 @@ function isInsideHiddenFolder(filePath) {
   return false;
 }
 
+function analyzeDllReference(filePath, baseDir, currentBlock, dllPath, lineNumber) {
+  const fullDllPath = path.resolve(baseDir, dllPath);
+  const exists = fs.existsSync(fullDllPath);
+  const dllName = path.basename(dllPath).toLowerCase();
+
+  const isMonitorPattern =
+    /monitor/i.test(dllPath) ||
+    dllPath.toLowerCase().endsWith(".net.dll") ||
+    dllPath.toLowerCase().endsWith(".net");
+
+  let risk = "warning";
+  let reason = `Ensamblado .NET ('${dllPath}') referenciado directamente en ${currentBlock} — revisar`;
+
+  if (isMonitorPattern) {
+    risk = "critical";
+    reason = `⚠️ PATRÓN MONITOR.NET: DLL '${dllPath}' referenciado en ${currentBlock}`;
+  }
+
+  const issue = {
+    type: "manifest_dll_reference",
+    file: filePath,
+    line: lineNumber,
+    dllPath,
+    resolvedFile: fullDllPath,
+    exists,
+    risk,
+    reason,
+  };
+
+  if (exists) {
+    const dllIssues = analyzeDLL(fullDllPath);
+    const hasKnownBackdoor = dllIssues.some((i) => i.type === "dll_known_backdoor");
+    const hasCritical = dllIssues.some((i) => i.risk === "critical");
+
+    if (hasKnownBackdoor) {
+      issue.risk = "critical";
+      issue.reason = `⚠️ BACKDOOR CONOCIDO EN DLL: '${dllPath}' en ${currentBlock} — ${dllIssues.find((i) => i.type === "dll_known_backdoor").reason}`;
+      issue.dllAnalysis = dllIssues;
+    } else if (hasCritical && risk !== "critical") {
+      issue.risk = "critical";
+      issue.reason = `DLL con indicadores críticos referenciado en ${currentBlock}: '${dllPath}'`;
+      issue.dllAnalysis = dllIssues;
+    } else {
+      issue.dllAnalysis = dllIssues;
+    }
+  }
+
+  return issue;
+}
+
 function analyzeManifest(filePath) {
   const content = fs.readFileSync(filePath, "utf8");
   const lines = content.split(/\r?\n/);
@@ -71,6 +122,17 @@ function analyzeManifest(filePath) {
 
     if (!currentBlock) return;
 
+    const dllMatches = [
+      ...trimmed.matchAll(/["']([^"']+\.(?:net\.dll|net|dll))["']/gi),
+    ];
+
+    dllMatches.forEach((match) => {
+      const dllPath = match[1];
+      issues.push(
+        analyzeDllReference(filePath, baseDir, currentBlock, dllPath, index + 1)
+      );
+    });
+
     const jsMatches = [...trimmed.matchAll(/["']([^"']+\.js)["']/gi)];
     if (jsMatches.length === 0) return;
 
@@ -97,11 +159,9 @@ function analyzeManifest(filePath) {
 
         let risk = "warning";
         let reason = `Ruta de un archivo JS dentro de ${currentBlock}`;
-        
+
         const jsIssues = analyzeJS(fullJsPath);
-        const hasCritical = jsIssues.some(
-          (issue) => issue.risk === "critical"
-        );
+        const hasCritical = jsIssues.some((issue) => issue.risk === "critical");
 
         if (hasCritical) {
           risk = "critical";

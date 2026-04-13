@@ -7,6 +7,23 @@ const { analyzeLua } = require("./luaAnalyzer");
 const config = require("../config/config.json");
 const { analyzeJS } = require("./jsAnalyzer");
 const { analyzeHTML } = require("./htmlAnalyzer");
+const { analyzeDLL } = require("./dllAnalyzer");
+
+const EXCLUDED_PATH_SEGMENTS = [
+  path.join("citizen", "clr2"),
+];
+
+const DLL_EXCLUDED_SEGMENTS = [
+  ...EXCLUDED_PATH_SEGMENTS,
+  "server-artifacts",
+];
+
+function isExcludedDLL(fullPath) {
+  const normalized = fullPath.replace(/\\/g, "/");
+  return DLL_EXCLUDED_SEGMENTS.some((seg) =>
+    normalized.includes(seg.replace(/\\/g, "/"))
+  );
+}
 
 function isWindowsHidden(filePath) {
   if (!fs.existsSync(filePath)) return false;
@@ -25,7 +42,6 @@ function isDotFile(filePath) {
 function containsCitizenObfuscatedPattern(filePath) {
   if (!fs.existsSync(filePath)) return false;
   const content = fs.readFileSync(filePath, "utf-8");
-
   const regex = /\/\*\s*\[cfg\]\s*\*\/[\s\S]*function\s+_ro\(/;
   return regex.test(content);
 }
@@ -37,30 +53,25 @@ function isInsideCitizenFolder(filePath) {
 
 function containsFolderPattern(filePath) {
   if (!fs.existsSync(filePath)) return false;
-
   const content = fs.readFileSync(filePath, "utf-8");
   const parts = filePath.split(path.sep);
   const folders = parts.slice(0, -1);
 
   for (const folder of folders) {
     if (!folder) continue;
-
     const safeFolder = folder.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
     const regex = new RegExp(`/\\*\\[\\s*${safeFolder}\\s*\\]\\*/`, "i");
-
     if (regex.test(content)) {
       return {
         type: "folder_obfuscated_pattern",
         file: filePath,
         risk: "critical",
-        reason: `El archivo contiene un comentario de ofuscación que coincide con la carpeta: [${folder}]`
+        reason: `El archivo contiene un comentario de ofuscación que coincide con la carpeta: [${folder}]`,
       };
     }
   }
-
   return false;
 }
-
 
 function containsObfuscatedGlobalThis(filePath) {
   if (!fs.existsSync(filePath)) return false;
@@ -78,14 +89,10 @@ function containsSuspiciousStartPattern(filePath) {
 function isInsideHiddenFolder(filePath) {
   const parts = filePath.split(path.sep);
   let current = parts[0];
-
   for (let i = 1; i < parts.length; i++) {
     current = path.join(current, parts[i]);
-    if (isWindowsHidden(current)) {
-      return true;
-    }
+    if (isWindowsHidden(current)) return true;
   }
-
   return false;
 }
 
@@ -112,6 +119,20 @@ function scan(root) {
 
     scannedFiles++;
 
+    if (name.endsWith(".dll")) {
+      if (isExcludedDLL(fullPath)) return;
+
+      const dllIssues = analyzeDLL(fullPath);
+      const relevant = dllIssues.filter(
+        (i) => i.risk !== "info" || i.type === "dll_native"
+      );
+      if (relevant.length > 0) {
+        issues.push(...relevant);
+      }
+      return;
+    }
+
+    // ── Lua en carpeta oculta ─────────────────────────────────────────────────
     if (name.endsWith(".lua") && isInsideHiddenFolder(fullPath)) {
       issues.push({
         type: "lua_in_hidden_folder",
@@ -149,95 +170,71 @@ function scan(root) {
     }
 
     if (name.endsWith(".js")) {
-        const jsIssues = analyzeJS(fullPath);
-        if (jsIssues.length > 0) {
-            issues.push(...jsIssues);
-        }
+      const jsIssues = analyzeJS(fullPath);
+      if (jsIssues.length > 0) issues.push(...jsIssues);
 
-        if (containsSuspiciousStartPattern(fullPath)) {
-             issues.push({
-               type: "js_suspicious_start",
-               file: fullPath,
-               risk: "critical",
-               reason: "Archivo JS comienza con patrón sospechoso (/* [)",
-             });
-        }
-    }
+      if (containsSuspiciousStartPattern(fullPath)) {
+        issues.push({
+          type: "js_suspicious_start",
+          file: fullPath,
+          risk: "critical",
+          reason: "Archivo JS comienza con patrón sospechoso (/* [)",
+        });
+      }
 
-    if (
-      name.endsWith(".js") &&
-      isInsideCitizenFolder(fullPath) &&
-      containsCitizenObfuscatedPattern(fullPath)
-    ) {
-      issues.push({
-        type: "citizen_obfuscated_js",
-        file: fullPath,
-        risk: "critical",
-        reason:
-          "Archivo JS en carpeta 'citizen' contiene patrón ofuscado sospechoso",
-      });
-    }
+      if (isInsideCitizenFolder(fullPath) && containsCitizenObfuscatedPattern(fullPath)) {
+        issues.push({
+          type: "citizen_obfuscated_js",
+          file: fullPath,
+          risk: "critical",
+          reason:
+            "Archivo JS en carpeta 'citizen' contiene patrón ofuscado sospechoso",
+        });
+      }
 
-    if (name.endsWith(".js") && containsSuspiciousStartPattern(fullPath)) {
-      issues.push({
-        type: "js_suspicious_start",
-        file: fullPath,
-        risk: "critical",
-        reason: "Archivo JS comienza con patrón sospechoso (/* [)",
-      });
-    }
-
-    if (name.endsWith(".js") && (isWindowsHidden(fullPath) || isDotFile(fullPath))) {
-      issues.push({
-        type: "hidden_js_file",
-        file: fullPath,
-        risk: "critical",
-        reason: "Archivo JS oculto o con nombre sospechoso (empieza con .)",
-      });
-    }
-
-    if (
-      (name.endsWith(".js") || name.endsWith(".lua")) &&
-      containsFolderPattern(fullPath)
-    ) {
-      issues.push({
-        type: "folder_obfuscated_pattern",
-        file: fullPath,
-        risk: "critical",
-        reason:
-          "Archivo contiene patrón ofuscado que coincide con alguna carpeta de su ruta",
-      });
-      return;
+      if (isWindowsHidden(fullPath) || isDotFile(fullPath)) {
+        issues.push({
+          type: "hidden_js_file",
+          file: fullPath,
+          risk: "critical",
+          reason:
+            "Archivo JS oculto o con nombre sospechoso (empieza con .)",
+        });
+      }
     }
 
     if (name.endsWith(".lua")) {
+      if (containsFolderPattern(fullPath)) {
+        issues.push({
+          type: "folder_obfuscated_pattern",
+          file: fullPath,
+          risk: "critical",
+          reason:
+            "Archivo contiene patrón ofuscado que coincide con alguna carpeta de su ruta",
+        });
+        return;
+      }
       issues.push(...analyzeLua(fullPath, config));
     }
 
     if (name.endsWith(".html")) {
       const htmlIssues = analyzeHTML(fullPath);
-      if (htmlIssues.length > 0) {
-        issues.push(...htmlIssues);
-      }
+      if (htmlIssues.length > 0) issues.push(...htmlIssues);
     }
-
-
   });
 
-  const uniqueIssues = new Map();
+  const seen = new Map();
   for (const issue of issues) {
-    const key = [issue.type, issue.file, issue.jsPath || "", issue.reason].join(
-      "|"
-    );
-    if (!uniqueIssues.has(key)) uniqueIssues.set(key, issue);
+    const key = [issue.type, issue.file, issue.jsPath || "", issue.reason].join("|");
+    if (!seen.has(key)) seen.set(key, issue);
   }
 
   return {
     summary: {
       scannedFiles,
-      totalIssues: uniqueIssues.size,
+      totalIssues: seen.size,
     },
-    issues: Array.from(uniqueIssues.values()),
+    issues: Array.from(seen.values()),
   };
 }
 
