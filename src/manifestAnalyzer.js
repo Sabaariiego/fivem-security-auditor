@@ -49,17 +49,6 @@ function analyzeDllReference(filePath, baseDir, currentBlock, dllPath, lineNumbe
   const exists = fs.existsSync(fullDllPath);
   const dllName = path.basename(dllPath).toLowerCase();
 
-  const isMonitorPattern =
-    dllPath.toLowerCase().endsWith(".net.dll");
-
-  let risk = "warning";
-  let reason = `Ensamblado .NET ('${dllPath}') referenciado directamente en ${currentBlock} — revisar`;
-
-  if (isMonitorPattern) {
-    risk = "critical";
-    reason = `⚠️ PATRÓN MONITOR.NET: DLL '${dllPath}' referenciado en ${currentBlock}`;
-  }
-
   const issue = {
     type: "manifest_dll_reference",
     file: filePath,
@@ -67,28 +56,28 @@ function analyzeDllReference(filePath, baseDir, currentBlock, dllPath, lineNumbe
     dllPath,
     resolvedFile: fullDllPath,
     exists,
-    risk,
-    reason,
+    risk: "warning",
+    reason: `Archivo .net.dll referenciado en ${currentBlock} — archivo no encontrado en disco`,
   };
 
-  if (exists) {
-    const dllIssues = analyzeDLL(fullDllPath);
-    const hasKnownBackdoor = dllIssues.some((i) => i.type === "dll_known_backdoor");
-    const hasCritical = dllIssues.some((i) => i.risk === "critical");
+  if (!exists) return issue;
 
-    if (hasKnownBackdoor) {
-      issue.risk = "critical";
-      issue.reason = `⚠️ BACKDOOR CONOCIDO EN DLL: '${dllPath}' en ${currentBlock} — ${dllIssues.find((i) => i.type === "dll_known_backdoor").reason}`;
-      issue.dllAnalysis = dllIssues;
-    } else if (hasCritical && risk !== "critical") {
-      issue.risk = "critical";
-      issue.reason = `DLL con indicadores críticos referenciado en ${currentBlock}: '${dllPath}'`;
-      issue.dllAnalysis = dllIssues;
-    } else {
-      issue.dllAnalysis = dllIssues;
-    }
+  const dllIssues = analyzeDLL(fullDllPath);
+  const hasKnownBackdoor = dllIssues.some((i) => i.type === "dll_known_backdoor");
+  const hasCritical = dllIssues.some((i) => i.risk === "critical");
+
+  if (hasKnownBackdoor) {
+    issue.risk = "critical";
+    issue.reason = `⚠️ BACKDOOR CONOCIDO EN DLL: '${dllPath}' en ${currentBlock} — ${dllIssues.find((i) => i.type === "dll_known_backdoor").reason}`;
+  } else if (hasCritical) {
+    issue.risk = "critical";
+    issue.reason = `DLL con indicadores críticos referenciado en ${currentBlock}: '${dllPath}'`;
+  } else {
+    issue.risk = "warning";
+    issue.reason = `Archivo .net.dll referenciado en ${currentBlock} — sin indicadores maliciosos detectados`;
   }
 
+  issue.dllAnalysis = dllIssues;
   return issue;
 }
 
