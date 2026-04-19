@@ -76,6 +76,74 @@ function fixLuaSingleLineBackdoor(file) {
 
 
 
+function applyFix(issue) {
+  if (!issue.file || !fs.existsSync(issue.file)) {
+    console.log(`[SKIP] El archivo ya no existe o ya fue procesado: ${issue.file}`);
+    return;
+  }
+
+  console.log("Fix:", issue.type, issue.file);
+
+  try {
+    switch (issue.type) {
+      case "manifest_backdoor":
+        fixManifest(issue);
+        break;
+
+      case "remote_vm_loader":
+        fixRemoteVMLoader(issue.file);
+        break;
+
+      case "citizen_obfuscated_js":
+      case "folder_obfuscated_pattern":
+      case "obfuscated_globalThis":
+      case "lua_in_hidden_folder":
+      case "js_suspicious_start":
+      case "js_backdoor_signature":
+      case "filesystem_export_backdoor":
+      case "dynamic_global_loader":
+      case "xor_eval_loader":
+      case "heavily_obfuscated_network_script":
+      case "hidden_js_file":
+      case "txadmin_playersdb_export":
+      case "critical_core_injection":
+      case "obfuscated_eval_loader":
+        removeFile(issue.file);
+        break;
+
+      case "hidden_folder":
+        removeFolder(issue.file);
+        break;
+
+      case "lua_single_line_obfuscated_backdoor":
+        fixLuaSingleLineBackdoor(issue.file);
+        break;
+
+      case "html_nui_eval_backdoor":
+        removeMaliciousInlineScript(issue.file);
+        break;
+
+      case "dll_known_backdoor":
+      case "dll_critical_indicators":
+      case "dll_combo_rat":
+      case "dll_combo_rce_fivem":
+      case "dll_combo_evasion_network":
+        removeFile(issue.file);
+        break;
+
+      case "manifest_dll_reference":
+        fixManifestDll(issue);
+        break;
+
+      default:
+        removeFile(issue.file);
+        break;
+    }
+  } catch (err) {
+    console.error(`[ERROR] No se pudo aplicar el fix en ${issue.file}:`, err.message);
+  }
+}
+
 function applyFixes(report) {
   const criticalIssues = report.issues.filter(
     issue => issue.risk === "critical"
@@ -87,70 +155,7 @@ function applyFixes(report) {
     "issues críticas"
   );
 
-  criticalIssues.forEach(issue => {
-    if (!issue.file || !fs.existsSync(issue.file)) {
-      console.log(`[SKIP] El archivo ya no existe o ya fue procesado: ${issue.file}`);
-      return;
-    }
-
-    console.log("Fix:", issue.type, issue.file);
-
-    try {
-      switch (issue.type) {
-        case "manifest_backdoor":
-          fixManifest(issue);
-          break;
-
-        case "remote_vm_loader":
-          fixRemoteVMLoader(issue.file);
-          break;
-
-        case "citizen_obfuscated_js":
-        case "folder_obfuscated_pattern":
-        case "obfuscated_globalThis":
-        case "lua_in_hidden_folder":
-        case "js_suspicious_start":
-        case "js_backdoor_signature":
-        case "filesystem_export_backdoor":
-        case "dynamic_global_loader":
-        case "xor_eval_loader":
-        case "heavily_obfuscated_network_script":
-        case "hidden_js_file":
-        case "txadmin_playersdb_export":
-        case "critical_core_injection":
-        case "obfuscated_eval_loader":
-          removeFile(issue.file);
-          break;
-
-        case "hidden_folder":
-          removeFolder(issue.file);
-          break;
-
-        case "lua_single_line_obfuscated_backdoor":
-          fixLuaSingleLineBackdoor(issue.file);
-          break;
-
-        case "html_nui_eval_backdoor":
-          removeMaliciousInlineScript(issue.file);
-          break;
-
-        case "dll_known_backdoor":
-        case "dll_critical_indicators":
-        case "dll_combo_rat":
-        case "dll_combo_rce_fivem":
-        case "dll_combo_evasion_network":
-          removeFile(issue.file);
-          break;
-
-        case "manifest_dll_reference":
-          fixManifestDll(issue);
-          break;
-
-      }
-    } catch (err) {
-      console.error(`[ERROR] No se pudo aplicar el fix en ${issue.file}:`, err.message);
-    }
-  });
+  criticalIssues.forEach(applyFix);
 }
 
 function fixManifestDll(issue) {
@@ -304,4 +309,4 @@ function removeFolder(dir) {
   }
 }
 
-module.exports = { applyFixes };
+module.exports = { applyFixes, applyFix };
